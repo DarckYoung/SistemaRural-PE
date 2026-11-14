@@ -80,3 +80,65 @@ class Paciente:
 
     def __str__(self) -> str:
         return f"{self.nombres} ({self.dni_enmascarado}) - {self.__caserio}"
+
+
+class PersonalSalud(ABC):
+    """Superclase abstracta para polimorfismo de personal asistencial."""
+
+    def __init__(self, codigo_colegiatura: str, nombre_completo: str) -> None:
+        self._codigo_colegiatura = codigo_colegiatura
+        self._nombre_completo = nombre_completo
+
+    @property
+    def nombre_completo(self) -> str:
+        return self._nombre_completo
+
+    @abstractmethod
+    def calcular_duracion_cita(self) -> int:
+        """Retorna duración estándar en minutos según especialidad."""
+
+
+class Medico(PersonalSalud):
+    def calcular_duracion_cita(self) -> int:
+        return 20
+
+
+class Enfermero(PersonalSalud):
+    def calcular_duracion_cita(self) -> int:
+        return 25
+
+
+class Obstetra(PersonalSalud):
+    def calcular_duracion_cita(self) -> int:
+        return 30
+
+
+class Cita:
+    """Asocia un Paciente con un PersonalSalud y gestiona su estado."""
+
+    def __init__(self, id_cita: str, paciente: Paciente, profesional: PersonalSalud,
+                 fecha_hora: str, estado: str = "PENDIENTE") -> None:
+        self.__id_cita = id_cita
+        self.__paciente = paciente
+        self.__profesional = profesional
+        self.__fecha_hora = fecha_hora
+        self.__estado = estado
+
+    @property
+    def paciente(self) -> Paciente:
+        return self.__paciente
+
+    @property
+    def profesional(self) -> PersonalSalud:
+        return self.__profesional
+
+    @property
+    def estado(self) -> str:
+        return self.__estado
+
+    @property
+    def fecha_hora(self) -> str:
+        return self.__fecha_hora
+
+    def atender(self) -> None:
+        self.__estado = "ATENDIDA"
