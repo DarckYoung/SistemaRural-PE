@@ -73,3 +73,10 @@ class Paciente:
     @property
     def historia(self) -> HistoriaClinica:
         return self.__historia
+
+
+    def dni_hash(self) -> str:
+        return hashlib.sha256(self.__dni.encode("utf-8")).hexdigest()[:12]
+
+    def __str__(self) -> str:
+        return f"{self.nombres} ({self.dni_enmascarado}) - {self.__caserio}"
