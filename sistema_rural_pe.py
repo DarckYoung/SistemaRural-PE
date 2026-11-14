@@ -208,6 +208,24 @@ class Cita:
         self.__estado = "ATENDIDA"
 
 
+def procesar_atenciones_funcional(citas: tuple[Cita, ...], solo_quechua: bool = False) -> dict[str, object]:
+    """Pipeline funcional puro (filter -> map -> reduce) sin mutar la colección."""
+    atendidas = tuple(filter(
+        lambda c: c.estado == "ATENDIDA" and (not solo_quechua or c.paciente.lengua_materna.lower() == "quechua"),
+        citas,
+    ))
+    resumenes = tuple(map(
+        lambda c: (c.paciente.dni_enmascarado, c.profesional.nombre_completo, c.profesional.calcular_duracion_cita()),
+        atendidas,
+    ))
+    total_minutos = reduce(lambda acc, item: acc + item[2], resumenes, 0)
+    return {
+        "total_atenciones": len(resumenes),
+        "total_minutos": total_minutos,
+        "registros_seguros": resumenes,
+    }
+
+
 class ReporteClinico(ABC):
     """Producto abstracto del patrón Factory Method."""
 
