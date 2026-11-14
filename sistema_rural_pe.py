@@ -22,6 +22,29 @@ class CitaDuplicadaError(RuntimeError):
     """Excepción lanzada ante cruces de horario o registros repetidos."""
 
 
+class GestorAuditoria:
+    """Patrón Singleton: centraliza la bitácora de auditoría sin texto plano."""
+
+    _instancia = None
+
+    def __new__(cls):
+        if cls._instancia is None:
+            cls._instancia = super().__new__(cls)
+            cls._instancia.__bitacora = []
+        return cls._instancia
+
+    @classmethod
+    def obtener_instancia(cls) -> "GestorAuditoria":
+        return cls()
+
+    def registrar_evento(self, accion: str, dni_hash: str) -> None:
+        marca = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.__bitacora.append(f"[{marca}] {accion} | REF:{dni_hash}")
+
+    def obtener_bitacora(self) -> tuple[str, ...]:
+        return tuple(self.__bitacora)
+
+
 class EntradaClinica:
     """Entidad dependiente (composición fuerte) de HistoriaClinica."""
 
@@ -183,3 +206,33 @@ class Cita:
 
     def atender(self) -> None:
         self.__estado = "ATENDIDA"
+
+
+class ReporteClinico(ABC):
+    """Producto abstracto del patrón Factory Method."""
+
+    @abstractmethod
+    def generar(self, citas: tuple[Cita, ...]) -> dict[str, object]:
+        """Genera un resumen estadístico sin exponer datos sensibles."""
+
+
+class ReporteHIS(ReporteClinico):
+    def generar(self, citas: tuple[Cita, ...]) -> dict[str, object]:
+        return procesar_atenciones_funcional(citas, solo_quechua=False)
+
+
+class ReporteMorbilidad(ReporteClinico):
+    def generar(self, citas: tuple[Cita, ...]) -> dict[str, object]:
+        return procesar_atenciones_funcional(citas, solo_quechua=True)
+
+
+class ReporteFactory:
+    """Patrón Factory Method: desacopla la creación de reportes DIRESA."""
+
+    @staticmethod
+    def crear_reporte(tipo: str) -> ReporteClinico:
+        tipos = {"HIS": ReporteHIS, "MORBILIDAD": ReporteMorbilidad}
+        clave = tipo.strip().upper()
+        if clave not in tipos:
+            raise DatosInvalidosError(f"Tipo de reporte no soportado: {tipo}")
+        return tipos[clave]()
