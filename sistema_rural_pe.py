@@ -22,6 +22,47 @@ class CitaDuplicadaError(RuntimeError):
     """Excepción lanzada ante cruces de horario o registros repetidos."""
 
 
+class EntradaClinica:
+    """Entidad dependiente (composición fuerte) de HistoriaClinica."""
+
+    def __init__(self, triaje: str, codigo_cie10: str, diagnostico: str) -> None:
+        if not re.fullmatch(r"[A-Z]\d{2}(\.\d)?", codigo_cie10.strip().upper()):
+            raise DatosInvalidosError("Código CIE-10 inválido (ej. J00 o O80.0).")
+        self.__fecha = datetime.now()
+        self.__triaje = triaje.strip()
+        self.__codigo_cie10 = codigo_cie10.strip().upper()
+        self.__diagnostico_hash = hashlib.sha256(diagnostico.encode("utf-8")).hexdigest()[:12]
+
+    @property
+    def codigo_cie10(self) -> str:
+        return self.__codigo_cie10
+
+    def resumen_anonimizado(self) -> dict[str, str]:
+        return {
+            "fecha": self.__fecha.strftime("%Y-%m-%d"),
+            "cie10": self.__codigo_cie10,
+            "dx_protegido": f"SHA256:{self.__diagnostico_hash}",
+        }
+
+
+class HistoriaClinica:
+    """Historia clínica compuesta por entradas clínicas dependientes."""
+
+    def __init__(self, numero_hc: str) -> None:
+        self.__numero_hc = numero_hc
+        self.__entradas: list[EntradaClinica] = []
+
+    @property
+    def numero_hc(self) -> str:
+        return self.__numero_hc
+
+    def agregar_entrada(self, entrada: EntradaClinica) -> None:
+        self.__entradas.append(entrada)
+
+    def obtener_entradas(self) -> tuple[EntradaClinica, ...]:
+        return tuple(self.__entradas)
+
+
 class Paciente:
     """Entidad de dominio con encapsulamiento estricto."""
 
