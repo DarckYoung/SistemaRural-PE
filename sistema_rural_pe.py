@@ -254,3 +254,74 @@ class ReporteFactory:
         if clave not in tipos:
             raise DatosInvalidosError(f"Tipo de reporte no soportado: {tipo}")
         return tipos[clave]()
+
+
+class ControladorClinico:
+    """Controlador desacoplado (SRP) que coordina dominio, auditoría y reportes."""
+
+    def __init__(self) -> None:
+        self.__pacientes: dict[str, Paciente] = {}
+        self.__citas: list[Cita] = []
+        self.__auditoria = GestorAuditoria.obtener_instancia()
+
+    def registrar_paciente_y_cita(self, dni: str, nombres: str, edad: int, caserio: str,
+                                  lengua: str, profesional: PersonalSalud, fecha_hora: str) -> Cita:
+        paciente = Paciente(dni=dni, nombres=nombres, edad=edad, caserio=caserio, lengua_materna=lengua)
+        clave_hash = paciente.dni_hash()
+        if clave_hash in self.__pacientes:
+            raise CitaDuplicadaError(f"El paciente {paciente.dni_enmascarado} ya está registrado.")
+        for cita in self.__citas:
+            if cita.profesional is profesional and cita.fecha_hora == fecha_hora:
+                raise CitaDuplicadaError("El profesional ya tiene una cita en ese horario.")
+        self.__pacientes[clave_hash] = paciente
+        nueva_cita = Cita(f"CIT-{len(self.__citas) + 1:03d}", paciente, profesional, fecha_hora)
+        self.__citas.append(nueva_cita)
+        self.__auditoria.registrar_evento("REGISTRO_CITA", clave_hash)
+        return nueva_cita
+
+    def obtener_citas_inmutables(self) -> tuple[Cita, ...]:
+        return tuple(self.__citas)
+
+
+class VentanaSistemaRural:
+    """Capa de presentación orientada a eventos con tkinter."""
+
+    def __init__(self, root) -> None:
+        self.root = root
+        self.root.title("SistemaRural-PE · P.S. CLAS Chetilla")
+        self.controlador = ControladorClinico()
+        self.medico = Medico("CMP-097341", "Dr. Luis Huamán")
+        self._construir_interfaz()
+
+    def _construir_interfaz(self) -> None:
+        marco = ttk.Frame(self.root, padding=12)
+        marco.pack(fill="both", expand=True)
+        self.ent_dni = ttk.Entry(marco)
+        self.ent_nom = ttk.Entry(marco)
+        self.ent_edad = ttk.Entry(marco)
+        for etiqueta, widget in [("DNI (8 dígitos):", self.ent_dni), ("Nombres:", self.ent_nom), ("Edad:", self.ent_edad)]:
+            ttk.Label(marco, text=etiqueta).pack(anchor="w")
+            widget.pack(fill="x", pady=2)
+        self.btn_guardar = ttk.Button(marco, text="Registrar Cita", command=self._al_registrar_cita)
+        self.btn_guardar.pack(pady=8)
+        self.lista = tk.Listbox(marco, width=55, height=6)
+        self.lista.pack(fill="both", expand=True)
+
+    def _al_registrar_cita(self) -> None:
+        self.btn_guardar.config(state="disabled")
+        try:
+            cita = self.controlador.registrar_paciente_y_cita(
+                self.ent_dni.get(), self.ent_nom.get(), int(self.ent_edad.get()),
+                "Chetilla", "Quechua", self.medico, "2026-11-13 09:00",
+            )
+            self.lista.insert(tk.END, f"{cita.paciente} | {cita.profesional.calcular_duracion_cita()} min")
+        except (DatosInvalidosError, CitaDuplicadaError, ValueError) as err:
+            messagebox.showerror("Validación Clínica", str(err))
+        finally:
+            self.btn_guardar.config(state="normal")
+
+
+if __name__ == "__main__":
+    raiz = tk.Tk()
+    app = VentanaSistemaRural(raiz)
+    raiz.mainloop()
